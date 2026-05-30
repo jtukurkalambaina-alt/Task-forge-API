@@ -1,0 +1,585 @@
+openapi: 3.0.3
+
+info:
+  title: TaskForge API
+  version: 1.0.0
+  description: Production-ready API for managing items in TaskForge system.
+  contact:
+    email: api-support@taskforge.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.taskforge.com/v1
+    description: Production server
+  - url: https://staging-api.taskforge.com/v1
+    description: Staging server
+  - url: https://dev-api.taskforge.com/v1
+    description: Development server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: items
+    description: Item management endpoints
+
+paths:
+  /items:
+    get:
+      tags: [items]
+      summary: List items
+      operationId: listItems
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: search
+          in: query
+          description: Search by item name or description
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter items by their status
+          schema:
+            type: string
+            enum: [active, archived, draft]
+        - name: sortBy
+          in: query
+          description: Attribute to sort items by
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, name, price]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          description: Sort order (ascending or descending)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          $ref: '#/components/responses/ItemListResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+    post:
+      tags: [items]
+      summary: Create an item
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemInput'
+            example:
+              name: New Laptop
+              description: Top-spec developer laptop
+              price: 2500.5
+              currency: USD
+              status: active
+              tags: [hardware, electronics]
+      responses:
+        '201':
+          $ref: '#/components/responses/ItemResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+  /items/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Unique item identifier
+        schema:
+          type: string
+          pattern: '^item_[a-zA-Z0-9]+$'
+    get:
+      tags: [items]
+      summary: Get item by ID
+      operationId: getItemById
+      responses:
+        '200':
+          $ref: '#/components/responses/ItemResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+    put:
+      tags: [items]
+      summary: Replace item by ID (full update)
+      operationId: updateItemById
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemInput'
+            example:
+              name: Updated Laptop
+              description: Updated details
+              price: 2300
+              currency: USD
+              status: active
+              tags: [hardware, sale]
+      responses:
+        '200':
+          $ref: '#/components/responses/ItemResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+    patch:
+      tags: [items]
+      summary: Partially update item by ID
+      operationId: patchItemById
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemPatchInput'
+            example:
+              status: archived
+              price: 1999.99
+              currency: USD
+      responses:
+        '200':
+          $ref: '#/components/responses/ItemResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+    delete:
+      tags: [items]
+      summary: Delete item by ID
+      operationId: deleteItemById
+      responses:
+        '204':
+          description: Item deleted successfully
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # fix #13: X-Request-ID defined once and reused across all responses
+  headers:
+    X-Request-ID:
+      description: Unique identifier for this request. Include in bug reports and support tickets.
+      schema:
+        type: string
+        example: req_7f3a2b1c4d5e6f
+
+  schemas:
+
+    Item:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          readOnly: true                         # fix #1: server-generated; clients must not send this
+          pattern: '^item_[a-zA-Z0-9]+$'        # fix #8: documents the real ID format
+          description: Unique identifier for the item
+          example: item_123
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the item
+          example: New Laptop
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: Detailed description of the item
+          example: Top-spec developer laptop
+        price:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+          description: Price of the item in the specified currency. Null if not set.
+          example: 2500.5
+        currency:
+          type: string
+          nullable: true
+          pattern: '^[A-Z]{3}$'                # fix #6: ISO 4217 currency code
+          description: ISO 4217 currency code for the price (e.g. USD, EUR). Required when price is set.
+          example: USD
+        status:
+          type: string
+          enum: [active, archived, draft]
+          default: draft
+          description: Current status of the item
+          example: active
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1                        # fix #7: no empty tag strings
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_-]+$'
+          minItems: 0
+          maxItems: 10
+          description: List of tags associated with the item
+          example: [hardware, electronics]
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true                        # fix #1: server-generated timestamp
+          description: ISO8601 datetime when the item was created
+          example: 2024-06-19T12:34:56Z
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true                        # fix #1: server-generated timestamp
+          description: ISO8601 datetime when the item was last updated
+          example: 2024-06-19T13:45:00Z
+
+    ItemInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the item
+          example: New Laptop
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: Optional detailed description
+          example: Top-spec developer laptop
+        price:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Optional price. Provide currency alongside price.
+          example: 2500.5
+        currency:
+          type: string
+          nullable: true
+          pattern: '^[A-Z]{3}$'               # fix #6
+          description: ISO 4217 currency code. Required when price is set.
+          example: USD
+        status:
+          type: string
+          enum: [active, archived, draft]
+          default: draft                       # fix #4: consistent with Item schema default
+          description: Status of the item. Defaults to draft if omitted.
+          example: active
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1                       # fix #7
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_-]+$'
+          minItems: 0
+          maxItems: 10
+          description: Optional list of tags
+          example: [hardware, electronics]
+
+    # fix #3: new schema for PATCH - all fields optional
+    ItemPatchInput:
+      type: object
+      description: >
+        Partial update payload for an item. Only fields that are provided will be updated;
+        omitted fields remain unchanged.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Name of the item
+          example: Updated Laptop
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: Detailed description of the item
+          example: Updated description
+        price:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Price of the item. Provide currency when updating price.
+          example: 1999.99
+        currency:
+          type: string
+          nullable: true
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 currency code. Required when updating price.
+          example: USD
+        status:
+          type: string
+          enum: [active, archived, draft]
+          description: Status of the item
+          example: archived
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+            pattern: '^[a-zA-Z0-9_-]+$'
+          minItems: 0
+          maxItems: 10
+          description: List of tags for the item
+          example: [hardware, sale]
+
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Human-readable error message explaining the problem
+        code:
+          type: string
+          description: Machine-readable error code
+          example: INVALID_REQUEST
+        details:
+          type: object
+          nullable: true                      # fix #12: not every error carries details
+          description: Additional details about the error, if available
+          additionalProperties: true
+      example:
+        message: Invalid request parameters
+        code: INVALID_REQUEST
+        details:
+          field: price
+          reason: Must be a positive number
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        pageSize:
+          type: integer
+          description: Number of items per page
+          example: 20
+        totalItems:
+          type: integer
+          description: Total number of items available
+          example: 125
+        totalPages:
+          type: integer
+          description: Total number of pages available
+          example: 7
+
+    # fix #2: renamed from ItemListResponse to avoid collision with the response component
+    PaginatedItems:
+      type: object
+      properties:
+        data:
+          type: array
+          description: List of items returned
+          items:
+            $ref: '#/components/schemas/Item'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+      example:
+        data:
+          - id: item_123
+            name: New Laptop
+            description: Top-spec developer laptop
+            price: 2500.5
+            currency: USD
+            status: active
+            tags: [hardware, electronics]
+            createdAt: 2024-06-19T12:34:56Z
+            updatedAt: 2024-06-19T13:45:00Z
+        meta:
+          page: 1
+          pageSize: 20
+          totalItems: 125
+          totalPages: 7
+
+  responses:
+
+    ItemResponse:
+      description: Successful item response
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Item'
+          example:
+            id: item_123
+            name: New Laptop
+            description: Top-spec developer laptop
+            price: 2500.5
+            currency: USD
+            status: active
+            tags: [hardware, electronics]
+            createdAt: 2024-06-19T12:34:56Z
+            updatedAt: 2024-06-19T13:45:00Z
+
+    ItemListResponse:
+      description: Paginated list of items
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PaginatedItems'  # fix #2: now points to renamed schema
+          example:
+            data:
+              - id: item_123
+                name: New Laptop
+                description: Top-spec developer laptop
+                price: 2500.5
+                currency: USD
+                status: active
+                tags: [hardware, electronics]
+                createdAt: 2024-06-19T12:34:56Z
+                updatedAt: 2024-06-19T13:45:00Z
+              - id: item_124
+                name: Mouse
+                description: Ergonomic mouse
+                price: 45.5
+                currency: USD
+                status: active
+                tags: [hardware, accessory]
+                createdAt: 2024-06-18T11:00:00Z
+                updatedAt: 2024-06-18T11:30:00Z
+            meta:
+              page: 1
+              pageSize: 20
+              totalItems: 125
+              totalPages: 7
+
+    BadRequest:
+      description: Invalid request
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Invalid request parameters
+            code: INVALID_REQUEST
+            details:
+              field: price
+              reason: Must be a positive number
+
+    Unauthorized:
+      description: Authentication required
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Authentication token is missing or invalid
+            code: UNAUTHORIZED
+
+    Forbidden:
+      description: Access denied
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: You do not have permission to access this resource
+            code: FORBIDDEN
+
+    NotFound:
+      description: Resource not found
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Item not found
+            code: NOT_FOUND
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:                          # fix #5: tells clients when to retry
+          description: Number of seconds to wait before retrying the request
+          schema:
+            type: integer
+            example: 30
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Rate limit exceeded. Please try again later.
+            code: TOO_MANY_REQUESTS
+
+    InternalServerError:
+      description: Server encountered an unexpected condition
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/X-Request-ID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Internal server error
+            code: INTERNAL_SERVER_ERROR
